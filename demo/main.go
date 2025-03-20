@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"socketioclient/socketio"
+	"socketioclient"
 	"syscall"
 	"time"
 )
@@ -12,8 +12,8 @@ import (
 func main() {
 
 	// 连接v2服务端
-	clientV2, err := socketio.NewClient(socketio.Config{
-		Version:        socketio.V2,
+	clientV2, err := socketioclient.NewClient(socketioclient.Config{
+		Version:        socketioclient.V2,
 		Host:           "http://localhost:3000",
 		Path:           "socket.io",
 		Reconnect:      true,

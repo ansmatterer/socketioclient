@@ -1,4 +1,4 @@
-package socketio
+package socketioclient
 
 import "time"
 
