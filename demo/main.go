@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"socketioclient"
 	"syscall"
 	"time"
+
+	"github.com/ansmatterer/socketioclient"
 )
 
 func main() {
