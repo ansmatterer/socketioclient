@@ -35,7 +35,7 @@ func (c *Client) resetTimeout() {
 	if c.heartbeatCancel != nil {
 		c.heartbeatCancel() // 先取消旧的 context
 	}
-	c.heartbeatCtx, c.heartbeatCancel = context.WithTimeout(context.Background(), c.pingTimeout)
+	c.heartbeatCtx, c.heartbeatCancel = context.WithTimeout(context.Background(), c.pingTimeout+c.pingInterval)
 	fmt.Printf("%d秒后超时\n", c.pingTimeout/time.Second)
 }
 
@@ -90,14 +90,18 @@ func (c *Client) connect() error {
 
 // 心跳管理
 func (c *Client) heartbeat() {
+
+	fmt.Println("心跳管理c.pingInterval:", c.pingInterval)
 	ticker := time.NewTicker(c.pingInterval)
 	defer ticker.Stop()
+
 	c.resetTimeout()
 	for {
 		select {
 		case <-ticker.C:
 			log.Println("ping：", _enginePingPacket)
 			c.write([]byte(_enginePingPacket)) // ping
+
 		case <-c.closeChan:
 			log.Println("关闭心跳")
 			return
@@ -111,6 +115,7 @@ func (c *Client) heartbeat() {
 			return
 		case <-c.heartbeatChan:
 			//回复了重新计时
+			log.Println("重新计时")
 			c.resetTimeout()
 
 		}
