@@ -28,7 +28,7 @@ func (c *Client) handleMessage(message []byte) {
 		c.Close()
 		return
 	case _enginePongPacket: // 心跳响应 3
-
+		c.heartbeatChan <- packetType
 		return
 	case _enginePingPacket: // 心跳 2
 		//响应心跳

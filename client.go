@@ -2,6 +2,7 @@ package socketioclient
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,18 +14,29 @@ import (
 )
 
 type Client struct {
-	conn          *websocket.Conn
-	config        Config
-	sid           string
-	pingInterval  time.Duration
-	pingTimeout   time.Duration
-	eventHandlers map[string]func([]byte)
-	ackCallbacks  map[int]func([]byte)
-	writeChan     chan []byte
-	closeChan     chan struct{}
-	connChan      chan []byte
-	reconnect     *reconnectManager
-	mutex         sync.RWMutex
+	conn            *websocket.Conn //websocket连接
+	config          Config          //配置
+	sid             string
+	pingInterval    time.Duration
+	pingTimeout     time.Duration
+	eventHandlers   map[string]func([]byte)
+	ackCallbacks    map[int]func([]byte)
+	writeChan       chan []byte
+	closeChan       chan struct{}
+	connChan        chan []byte //接收链接信息的通道
+	heartbeatChan   chan string //心跳管理
+	heartbeatCtx    context.Context
+	heartbeatCancel context.CancelFunc
+	reconnect       *reconnectManager
+	mutex           sync.RWMutex
+}
+
+func (c *Client) resetTimeout() {
+	if c.heartbeatCancel != nil {
+		c.heartbeatCancel() // 先取消旧的 context
+	}
+	c.heartbeatCtx, c.heartbeatCancel = context.WithTimeout(context.Background(), c.pingTimeout)
+	fmt.Printf("%d秒后超时\n", c.pingTimeout/time.Second)
 }
 
 func NewClient(cfg Config) (*Client, error) {
@@ -62,6 +74,7 @@ func (c *Client) connect() error {
 	//log.Printf("c.closeChan:%v", c.closeChan)
 	c.conn = conn
 	c.closeChan = make(chan struct{})
+	c.heartbeatChan = make(chan string)
 	go c.readPump()
 	go c.writePump()
 
@@ -79,7 +92,7 @@ func (c *Client) connect() error {
 func (c *Client) heartbeat() {
 	ticker := time.NewTicker(c.pingInterval)
 	defer ticker.Stop()
-
+	c.resetTimeout()
 	for {
 		select {
 		case <-ticker.C:
@@ -88,6 +101,18 @@ func (c *Client) heartbeat() {
 		case <-c.closeChan:
 			log.Println("关闭心跳")
 			return
+		case <-c.heartbeatCtx.Done():
+			//心跳监测超时
+			log.Println("心跳超时")
+			//关闭连接信息准备重连
+			c.Close(false)
+			//重连
+			c.reconnect.trigger(c)
+			return
+		case <-c.heartbeatChan:
+			//回复了重新计时
+			c.resetTimeout()
+
 		}
 	}
 }
