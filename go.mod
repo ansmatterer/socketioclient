@@ -1,4 +1,4 @@
-module socketioclient
+module github.com/ansmatterer/socketioclient
 
 go 1.21.3
 
